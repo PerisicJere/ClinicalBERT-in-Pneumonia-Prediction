@@ -102,15 +102,8 @@ def main():
     if device == "cuda":
         print(f"GPU: {torch.cuda.get_device_name(torch.cuda.current_device())}")
 
-    tokenizer = AutoTokenizer.from_pretrained("medicalai/ClinicalBERT")
-    model = AutoModelForSequenceClassification.from_pretrained(
-        "medicalai/ClinicalBERT",
-        num_labels=2
-    )
-    model.gradient_checkpointing_enable()
-    model.to(device)
 
-    df = pd.read_csv("cohorts/cleaned_data_of_pneumonia_patients.csv")
+    df = pd.read_csv("cleaned_data_of_pneumonia_patients.csv")
 
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=13)
 
@@ -130,6 +123,14 @@ def main():
         train_df = df.iloc[train_idx]
         val_df = df.iloc[val_idx]
 
+        tokenizer = AutoTokenizer.from_pretrained("medicalai/ClinicalBERT")
+        model = AutoModelForSequenceClassification.from_pretrained(
+            "medicalai/ClinicalBERT",
+            num_labels=2
+        )
+
+        model.gradient_checkpointing_enable()
+        model.to(device)
         train_dataset = create_dataset(train_df, tokenizer)
         val_dataset = create_dataset(val_df, tokenizer)
 
@@ -144,7 +145,7 @@ def main():
             logging_dir='./logs',
             learning_rate=2e-5,
             save_total_limit=1,
-            metric_for_best_model='auc',
+            metric_for_best_model='eval_AUC',
             logging_steps=100,
             warmup_steps=500,
             gradient_accumulation_steps=2,
