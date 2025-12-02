@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trainer, TrainingArguments
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import GroupKFold
 from torch.utils.data import Dataset
 from sklearn.metrics import (
     roc_auc_score,
@@ -103,9 +103,10 @@ def main():
         print(f"GPU: {torch.cuda.get_device_name(torch.cuda.current_device())}")
 
 
-    df = pd.read_csv("cleaned_data_of_pneumonia_patients.csv")
+    df = pd.read_csv("temporally_valid_pneumonia_cohort.tsv", sep='\t')
 
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=13)
+    gkf = GroupKFold(n_splits=5)
+    groups = df['SUBJECT_ID'].values
 
     auc_values = []
     sens_values = []
@@ -117,7 +118,7 @@ def main():
     all_tpr = []
     all_roc_auc = []
 
-    for fold, (train_idx, val_idx) in enumerate(skf.split(df, df['Pneumonia'])):
+    for fold, (train_idx, val_idx) in enumerate(gkf.split(df, df['Pneumonia'], groups=groups)):
         print(f"\nTraining fold {fold + 1}")
 
         train_df = df.iloc[train_idx]
@@ -166,9 +167,9 @@ def main():
 
             val_results = trainer.evaluate(eval_dataset=val_dataset)
             print(f"\n{val_results}")
-            all_fpr, all_tpr, all_roc_auc = plot_auc(trainer, val_dataset, fold, all_fpr, all_tpr, all_roc_auc)
 
             eval_preds = trainer.predict(val_dataset)
+            all_fpr, all_tpr, all_roc_auc = plot_auc(eval_preds, all_fpr, all_tpr, all_roc_auc)
             labels = eval_preds.label_ids
             preds = eval_preds.predictions.argmax(-1)
             probs = torch.softmax(torch.tensor(eval_preds.predictions), dim=-1)[:,
@@ -196,8 +197,7 @@ def main():
     plot_all_folds_auc(all_fpr, all_tpr, all_roc_auc)
 
 # Plots the ROC curve for the given fold and adds the results to the cumulative AUC values.
-def plot_auc(trainer, val_dataset, fold, all_fpr, all_tpr, all_roc_auc):
-    eval_preds = trainer.predict(val_dataset)
+def plot_auc(eval_preds, all_fpr, all_tpr, all_roc_auc):
     labels = eval_preds.label_ids
     probs = torch.softmax(torch.tensor(eval_preds.predictions), dim=-1)[:, 1].numpy()
 
