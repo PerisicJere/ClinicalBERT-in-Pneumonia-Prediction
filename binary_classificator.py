@@ -166,9 +166,9 @@ def main():
 
             val_results = trainer.evaluate(eval_dataset=val_dataset)
             print(f"\n{val_results}")
-            all_fpr, all_tpr, all_roc_auc = plot_auc(trainer, val_dataset, fold, all_fpr, all_tpr, all_roc_auc)
 
             eval_preds = trainer.predict(val_dataset)
+            all_fpr, all_tpr, all_roc_auc = plot_auc(eval_preds, all_fpr, all_tpr, all_roc_auc)
             labels = eval_preds.label_ids
             preds = eval_preds.predictions.argmax(-1)
             probs = torch.softmax(torch.tensor(eval_preds.predictions), dim=-1)[:,
@@ -196,8 +196,7 @@ def main():
     plot_all_folds_auc(all_fpr, all_tpr, all_roc_auc)
 
 # Plots the ROC curve for the given fold and adds the results to the cumulative AUC values.
-def plot_auc(trainer, val_dataset, fold, all_fpr, all_tpr, all_roc_auc):
-    eval_preds = trainer.predict(val_dataset)
+def plot_auc(eval_preds, all_fpr, all_tpr, all_roc_auc):
     labels = eval_preds.label_ids
     probs = torch.softmax(torch.tensor(eval_preds.predictions), dim=-1)[:, 1].numpy()
 
